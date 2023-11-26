@@ -1,69 +1,83 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Entity.Infrastructure;
 using System.Linq;
-using System.Net;
 using System.Web;
 using System.Web.Mvc;
-using System.Linq;
-
 using Team0_ManagementProperty.Models;
-using System.Data.Entity.Infrastructure;
 
 namespace Team0_ManagementProperty.Controllers
 {
     public class PropertyController : Controller
     {
         private QUANLYBDS_TEAMEntities entities = new QUANLYBDS_TEAMEntities();
+
         // GET: Property
         public ActionResult Index()
         {
             List<Property> properties = entities.Properties.ToList();
             return View(properties);
         }
-        [HttpGet]
+
         public ActionResult Add()
         {
-            return View();
+            LoadDropdowns(); // Tải danh sách loại bất động sản và quận
+            return View(new Property());
         }
+
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Add(Property entity)
         {
-            try
-            {
-                List<Property_Type> propertyTypes = entities.Property_Type.ToList();
-                List<District> districts = entities.Districts.ToList();
-
-                // Lấy danh sách loại bất động sản từ cơ sở dữ liệu
-                List<SelectListItem> propertyTypeItems = propertyTypes
-                    .Select(x => new SelectListItem { Value = x.ID.ToString(), Text = x.Property_Type_Name })
-                    .ToList();
-
-                List<District> district = entities.Districts.ToList();
-                List<SelectListItem> districtItems = districts
-                    .Select(x => new SelectListItem { Value = x.ID.ToString(), Text = x.District_Name })
-                    .ToList();
-
-                // Gán danh sách quận vào ViewBag
-                ViewBag.Districts = districtItems;
-
-                // Gán danh sách loại bất động sản vào ViewBag
-                ViewBag.PropertyTypes = propertyTypeItems;
-
-                // Thêm entity vào context (chưa lưu vào database)
+                try
+                {
                 entities.Properties.Add(entity);
 
-                // Lưu thay đổi vào database
-                entities.SaveChanges();
+                    // Save changes to the database
+                    entities.SaveChanges();
+                    return RedirectToAction("Index", "Property");
+                }
+                catch (Exception ex)
+                {
+                    // Log the exception details
+                    Console.WriteLine($"An error occurred: {ex.Message}");
 
-                // Chuyển hướng đến action Index của PropertyController
-                return RedirectToAction("Index", "Property");
+                    // Rollback the transaction on error
+                    
 
-            } catch (Exception ex)
-            {
-                return View(entity);
+                    // Add an error message to ModelState
+                    ModelState.AddModelError("", "An error occurred while processing your request.");
+
+                    // Reload dropdowns and return the view with errors
+                    LoadDropdowns();
+                    return View(entity);
+                }
             }
-            
-            }
-    
+        
+
+
+        private void LoadDropdowns()
+        {
+            List<Property_Type> propertyTypes = entities.Property_Type.ToList();
+            List<SelectListItem> propertyTypeItems = propertyTypes
+                .Select(x => new SelectListItem { Value = x.ID.ToString(), Text = x.Property_Type_Name })
+                .ToList();
+
+            List<District> districts = entities.Districts.ToList();
+            List<SelectListItem> districtItems = districts
+                .Select(x => new SelectListItem { Value = x.ID.ToString(), Text = x.District_Name })
+                .ToList();
+            var statusList = entities.Property_Status
+     .Select(s => new SelectListItem
+     {
+         Value = s.ID.ToString(),
+         Text = s.Property_Status_Name
+     })
+     .ToList();
+
+            ViewBag.Property_Status = statusList;
+            ViewBag.Districts = districtItems;
+            ViewBag.PropertyTypes = propertyTypeItems;
+        }
     }
 }
